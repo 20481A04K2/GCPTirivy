@@ -1,16 +1,39 @@
 steps:
-  # Step 1: Pull the image from Artifact Registry
+  # Step 1: Clone from GitHub – optional if using Cloud Build trigger directly
+  # (skip if you're triggering directly from GitHub repo)
+
+  # Step 2: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    id: Pull image
+    id: Build Docker Image
+    args:
+      [
+        'build',
+        '-t',
+        'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA',
+        '.'
+      ]
+
+  # Step 3: Push Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push Image
+    args:
+      [
+        'push',
+        'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA'
+      ]
+
+  # Step 4: Pull image (simulate VM)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Pull for Test
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:latest
+        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-  # Step 2: Run Trivy vulnerability scan
-  - name: 'aquasec/trivy:0.44.0'  # Or latest Trivy version
-    id: Run Trivy
+  # Step 5: Run Trivy scan
+  - name: 'aquasec/trivy:0.44.0'
+    id: Trivy Scan
     entrypoint: 'sh'
     args:
       - '-c'
@@ -20,11 +43,11 @@ steps:
           --format table \
           --exit-code 0 \
           --output /workspace/trivy-report.txt \
-          us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:latest
+          us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-  # Step 3: Upload the report to GCS bucket
+  # Step 6: Upload report to GCS
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: Upload to GCS
+    id: Upload Report
     entrypoint: 'bash'
     args:
       - '-c'
@@ -32,9 +55,9 @@ steps:
         TIMESTAMP=$$(date +%Y%m%d-%H%M%S)
         gsutil cp /workspace/trivy-report.txt gs://vamsi-trivy-reports/trivy-report-$$TIMESTAMP.txt
 
-timeout: 5400s  # 1.5 hours timeout
+timeout: 5400s
 options:
   logging: CLOUD_LOGGING_ONLY
 
+# Use your fine-grained SA
 serviceAccount: 57920515119-compute@developer.gserviceaccount.com
-
