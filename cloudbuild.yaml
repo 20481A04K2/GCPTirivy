@@ -29,8 +29,8 @@ steps:
     args:
       - '-c'
       - |
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        gsutil cp /workspace/trivy-report.txt gs://vamsi-trivy-reports/trivy-report-$TIMESTAMP.txt
+        TIMESTAMP=$$(date +%Y%m%d-%H%M%S)
+        gsutil cp /workspace/trivy-report.txt gs://vamsi-trivy-reports/trivy-report-$$TIMESTAMP.txt
 
 timeout: 5400s  # 1.5 hours timeout
 options:
