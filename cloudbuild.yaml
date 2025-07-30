@@ -1,0 +1,37 @@
+steps:
+  # Step 1: Pull the image from Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Pull image
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:latest
+
+  # Step 2: Run Trivy vulnerability scan
+  - name: 'aquasec/trivy:0.44.0'  # Or latest Trivy version
+    id: Run Trivy
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        trivy image \
+          --scanners vuln \
+          --format table \
+          --exit-code 0 \
+          --output /workspace/trivy-report.txt \
+          us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:latest
+
+  # Step 3: Upload the report to GCS bucket
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Upload to GCS
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        gsutil cp /workspace/trivy-report.txt gs://vamsi-trivy-reports/trivy-report-$TIMESTAMP.txt
+
+timeout: 5400s  # 1.5 hours timeout
+
+
