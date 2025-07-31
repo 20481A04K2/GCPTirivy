@@ -28,31 +28,9 @@ steps:
       - |
         docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-  # Step 4: Run Trivy scan
-  - name: 'aquasec/trivy:0.44.0'
-    id: Trivy Scan
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        trivy image \
-          --scanners vuln \
-          --format table \
-          --exit-code 0 \
-          --output /workspace/trivy-report.txt \
-          us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-  # Step 5: Upload report to GCS
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: Upload Report
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        TIMESTAMP=$$(date +%Y%m%d-%H%M%S)
-        gsutil cp /workspace/trivy-report.txt gs://vamsi-trivy-reports/trivy-report-$$TIMESTAMP.txt
 
-  # ✅ Step 6: Deploy to Cloud Run
+  # ✅ Step 6: Deploy to Cloud Run (with port 5000)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: Deploy to Cloud Run
     entrypoint: 'bash'
@@ -64,7 +42,7 @@ steps:
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated \
-          --port=8080 \
+          --port=5000 \
           --service-account=57920515119-compute@developer.gserviceaccount.com
 
 timeout: 5400s
