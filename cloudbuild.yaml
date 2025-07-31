@@ -1,8 +1,5 @@
 steps:
-  # Step 1: Clone from GitHub – optional if using Cloud Build trigger directly
-  # (skip if you're triggering directly from GitHub repo)
-
-  # Step 2: Build Docker image
+  # Step 1: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     id: Build Docker Image
     args:
@@ -13,7 +10,7 @@ steps:
         '.'
       ]
 
-  # Step 3: Push Docker image to Artifact Registry
+  # Step 2: Push Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     id: Push Image
     args:
@@ -22,7 +19,7 @@ steps:
         'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA'
       ]
 
-  # Step 4: Pull image (simulate VM)
+  # Step 3: Pull image (simulate VM)
   - name: 'gcr.io/cloud-builders/docker'
     id: Pull for Test
     entrypoint: 'bash'
@@ -31,7 +28,7 @@ steps:
       - |
         docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-  # Step 5: Run Trivy scan
+  # Step 4: Run Trivy scan
   - name: 'aquasec/trivy:0.44.0'
     id: Trivy Scan
     entrypoint: 'sh'
@@ -45,7 +42,7 @@ steps:
           --output /workspace/trivy-report.txt \
           us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-  # Step 6: Upload report to GCS
+  # Step 5: Upload report to GCS
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: Upload Report
     entrypoint: 'bash'
@@ -55,9 +52,24 @@ steps:
         TIMESTAMP=$$(date +%Y%m%d-%H%M%S)
         gsutil cp /workspace/trivy-report.txt gs://vamsi-trivy-reports/trivy-report-$$TIMESTAMP.txt
 
+  # ✅ Step 6: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy to Cloud Run
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy flask-trivy-app \
+          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA \
+          --region=us-central1 \
+          --platform=managed \
+          --allow-unauthenticated \
+          --port=8080 \
+          --service-account=57920515119-compute@developer.gserviceaccount.com
+
 timeout: 5400s
+
 options:
   logging: CLOUD_LOGGING_ONLY
 
-# Use your fine-grained SA
 serviceAccount: 57920515119-compute@developer.gserviceaccount.com
