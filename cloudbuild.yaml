@@ -6,13 +6,13 @@ steps:
     args:
       - -c
       - |
-        LATEST=$(gcloud artifacts docker images list \
+        LATEST=$$(gcloud artifacts docker images list \
           us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo \
           --filter="package=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app" \
           --sort-by="~UPDATE_TIME" \
           --limit=1 \
           --format="value(format(\"%s@%s\", package, version))")
-        echo "LATEST_IMAGE=${LATEST}" >> $${BUILD_OUTPUT}
+        echo "LATEST_IMAGE=$${LATEST}" >> $$$${BUILD_OUTPUT}
   
   # Step 2: Pull the image using its digest
   - id: Pull-Latest-Image
@@ -21,8 +21,8 @@ steps:
     args:
       - -c
       - |
-        source $${BUILD_OUTPUT}
-        docker pull "$LATEST_IMAGE"
+        source $$$${BUILD_OUTPUT}
+        docker pull "$$LATEST_IMAGE"
 
   # Step 3: Deploy that image to Cloud Run
   - id: Deploy
@@ -31,9 +31,9 @@ steps:
     args:
       - -c
       - |
-        source $${BUILD_OUTPUT}
+        source $$$${BUILD_OUTPUT}
         gcloud run deploy flask-trivy-app \
-          --image="$LATEST_IMAGE" \
+          --image="$$LATEST_IMAGE" \
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated \
