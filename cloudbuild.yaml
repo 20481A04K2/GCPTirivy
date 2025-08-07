@@ -41,7 +41,7 @@ steps:
         source /workspace/digest.env
         echo "Deploying to Cloud Run using digest..."
         gcloud run deploy flask-app-service \
-          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@${LATEST_DIGEST} \
+          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@$${LATEST_DIGEST} \
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated \
