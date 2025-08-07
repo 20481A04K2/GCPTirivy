@@ -1,54 +1,51 @@
 steps:
   # Step 1: Get the latest image digest
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: Get-Latest-Tag
+    id: Get-Latest-Digest
     entrypoint: 'bash'
     args:
       - -c
       - |
-        echo "Fetching latest digest..."
+        echo "Fetching latest image digest..."
         DIGEST=$$(gcloud artifacts docker images list us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app \
-          --sort-by=UPDATE_TIME --limit=1 --format='value(DIGEST)')
-        
-        echo "Latest digest: $${DIGEST}"
+          --sort-by=UPDATE_TIME \
+          --limit=1 \
+          --format='value(DIGEST)')
 
-        echo "Fetching tag associated with digest..."
-        TAG=$$(gcloud artifacts docker tags list us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@$${DIGEST} \
-          --format='value(TAGS)' | head -n1)
-
-        if [ -z "$$TAG" ]; then
-          echo "❌ No tag found for digest $${DIGEST}"
+        if [ -z "$$DIGEST" ]; then
+          echo "❌ Failed to get latest digest"
           exit 1
         fi
 
-        echo "LATEST_TAG=$${TAG}" > /workspace/tag.env
-        echo "Found tag: $${TAG}"
+        echo "LATEST_DIGEST=$${DIGEST}" > /workspace/digest.env
+        echo "✅ Latest digest: $${DIGEST}"
 
-  # Step 2: Pull image with that tag
-  - name: 'gcr.io/cloud-builders/docker'
-    id: Pull-Latest-Image
+  # Step 2: Pull the image using digest
+  - name: gcr.io/cloud-builders/docker
+    id: Pull-Image-Digest
     entrypoint: 'bash'
     args:
       - -c
       - |
-        source /workspace/tag.env
-        echo "Pulling image with tag: $${LATEST_TAG}"
-        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$${LATEST_TAG}
+        source /workspace/digest.env
+        echo "Pulling image with digest: $${LATEST_DIGEST}"
+        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@$${LATEST_DIGEST}
 
-  # Step 3: Deploy to Cloud Run
+  # Step 3: Deploy to Cloud Run using digest
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: Deploy-Cloud-Run
     entrypoint: 'bash'
     args:
       - -c
       - |
-        source /workspace/tag.env
-        echo "Deploying to Cloud Run with image tag: $${LATEST_TAG}"
+        source /workspace/digest.env
+        echo "Deploying to Cloud Run using digest..."
         gcloud run deploy flask-app-service \
-          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$${LATEST_TAG} \
+          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@${LATEST_DIGEST} \
           --region=us-central1 \
           --platform=managed \
-          --allow-unauthenticated
+          --allow-unauthenticated \
+          --port=6000
 
 options:
   logging: CLOUD_LOGGING_ONLY
