@@ -1,51 +1,46 @@
 steps:
-  # Step 1: Build Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    id: Build Docker Image
+  # Step 1: Get the most recently updated image (package@digest)
+  - id: Get-Latest
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
     args:
-      [
-        'build',
-        '-t',
-        'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA',
-        '.'
-      ]
-
-  # Step 2: Push Docker image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    id: Push Image
-    args:
-      [
-        'push',
-        'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA'
-      ]
-
-  # Step 3: Pull image (simulate VM)
-  - name: 'gcr.io/cloud-builders/docker'
-    id: Pull for Test
-    entrypoint: 'bash'
-    args:
-      - '-c'
+      - -c
       - |
-        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
-
-
-
-  # ✅ Step 6: Deploy to Cloud Run (with port 5000)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: Deploy to Cloud Run
-    entrypoint: 'bash'
+        LATEST=$(gcloud artifacts docker images list \
+          us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo \
+          --filter="package=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app" \
+          --sort-by="~UPDATE_TIME" \
+          --limit=1 \
+          --format="value(format(\"%s@%s\", package, version))")
+        echo "LATEST_IMAGE=${LATEST}" >> $${BUILD_OUTPUT}
+  
+  # Step 2: Pull the image using its digest
+  - id: Pull-Latest-Image
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - '-c'
+      - -c
       - |
+        source $${BUILD_OUTPUT}
+        docker pull "$LATEST_IMAGE"
+
+  # Step 3: Deploy that image to Cloud Run
+  - id: Deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        source $${BUILD_OUTPUT}
         gcloud run deploy flask-trivy-app \
-          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA \
+          --image="$LATEST_IMAGE" \
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated \
           --port=6000 \
           --service-account=57920515119-compute@developer.gserviceaccount.com
 
-timeout: 5400s
+timeout: 3600s
 
 options:
   logging: CLOUD_LOGGING_ONLY
