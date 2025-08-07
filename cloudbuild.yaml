@@ -1,18 +1,30 @@
 steps:
-  # Step 1: Fetch latest image tag
+  # Step 1: Get the latest image digest
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: Get-Latest-Tag
     entrypoint: 'bash'
     args:
       - -c
       - |
-        echo "Fetching latest tag..."
-        TAG=$$(gcloud artifacts docker tags list us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app \
-          --sort-by=TIMESTAMP --limit=1 --format='value(TAGS)')
-        echo "LATEST_TAG=$${TAG}" > /workspace/tag.env
-        echo "Latest tag is: $${TAG}"
+        echo "Fetching latest digest..."
+        DIGEST=$(gcloud artifacts docker images list us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app \
+          --sort-by=UPDATE_TIME --limit=1 --format='value(DIGEST)')
+        
+        echo "Latest digest: ${DIGEST}"
 
-  # Step 2: Source the tag and pull image
+        echo "Fetching tag associated with digest..."
+        TAG=$(gcloud artifacts docker tags list us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@${DIGEST} \
+          --format='value(TAGS)' | head -n1)
+
+        if [ -z "$TAG" ]; then
+          echo "❌ No tag found for digest ${DIGEST}"
+          exit 1
+        fi
+
+        echo "LATEST_TAG=${TAG}" > /workspace/tag.env
+        echo "Found tag: ${TAG}"
+
+  # Step 2: Pull image with that tag
   - name: 'gcr.io/cloud-builders/docker'
     id: Pull-Latest-Image
     entrypoint: 'bash'
@@ -20,10 +32,10 @@ steps:
       - -c
       - |
         source /workspace/tag.env
-        echo "Pulling image with tag: $${LATEST_TAG}"
-        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$${LATEST_TAG}
+        echo "Pulling image with tag: ${LATEST_TAG}"
+        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:${LATEST_TAG}
 
-  # Step 3: Deploy to Cloud Run with the latest tag
+  # Step 3: Deploy to Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: Deploy-Cloud-Run
     entrypoint: 'bash'
@@ -31,16 +43,12 @@ steps:
       - -c
       - |
         source /workspace/tag.env
-        echo "Deploying to Cloud Run with image: $${LATEST_TAG}"
+        echo "Deploying to Cloud Run with image tag: ${LATEST_TAG}"
         gcloud run deploy flask-app-service \
-          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$${LATEST_TAG} \
+          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:${LATEST_TAG} \
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated
-
-# Optional substitution for tag value if needed externally
-substitutions:
-  _REGION: us-central1
 
 options:
   logging: CLOUD_LOGGING_ONLY
