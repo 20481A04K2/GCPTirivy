@@ -1,51 +1,55 @@
 steps:
-  # Step 1: Get the latest image digest
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: Get-Latest-Digest
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build Docker Image
+    args:
+      [
+        'build',
+        '-t',
+        'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA',
+        '.'
+      ]
+
+  # Step 2: Push Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push Image
+    args:
+      [
+        'push',
+        'us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA'
+      ]
+
+  # Step 3: Pull image (simulate VM)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Pull for Test
     entrypoint: 'bash'
     args:
-      - -c
+      - '-c'
       - |
-        echo "Fetching latest image digest..."
-        DIGEST=$$(gcloud artifacts docker images list us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app \
-          --sort-by=UPDATE_TIME \
-          --limit=1 \
-          --format='value(DIGEST)')
+        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA
 
-        if [ -z "$$DIGEST" ]; then
-          echo "❌ Failed to get latest digest"
-          exit 1
-        fi
 
-        echo "LATEST_DIGEST=$${DIGEST}" > /workspace/digest.env
-        echo "✅ Latest digest: $${DIGEST}"
 
-  # Step 2: Pull the image using digest
-  - name: gcr.io/cloud-builders/docker
-    id: Pull-Image-Digest
+  # ✅ Step 6: Deploy to Cloud Run (with port 5000)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy to Cloud Run
     entrypoint: 'bash'
     args:
-      - -c
+      - '-c'
       - |
-        source /workspace/digest.env
-        echo "Pulling image with digest: $${LATEST_DIGEST}"
-        docker pull us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@$${LATEST_DIGEST}
-
-  # Step 3: Deploy to Cloud Run using digest
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: Deploy-Cloud-Run
-    entrypoint: 'bash'
-    args:
-      - -c
-      - |
-        source /workspace/digest.env
-        echo "Deploying to Cloud Run using digest..."
-        gcloud run deploy flask-app-service \
-          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app@$${LATEST_DIGEST} \
+        gcloud run deploy flask-trivy-app \
+          --image=us-central1-docker.pkg.dev/sylvan-hydra-464904-d9/vamsi-trivy-flask-repo/flask-app:$SHORT_SHA \
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated \
-          --port=8080
+          --port=8080 \
+          --service-account=57920515119-compute@developer.gserviceaccount.com
+
+timeout: 5400s
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+serviceAccount: 57920515119-compute@developer.gserviceaccount.com
+
+
