@@ -42,7 +42,7 @@ steps:
           --region=us-central1 \
           --platform=managed \
           --allow-unauthenticated \
-          --port=8080 \
+          --port=6000 \
           --service-account=57920515119-compute@developer.gserviceaccount.com
 
 timeout: 5400s
