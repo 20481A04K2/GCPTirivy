@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir flask==2.3.3
 COPY app.py .
 
 # Expose the port the app runs on
-EXPOSE 8080
+EXPOSE 6000
 
 # Run the Flask app
 CMD ["python", "app.py"]
