@@ -40,7 +40,7 @@ steps:
           --region=asia-south1 \
           --platform=managed \
           --allow-unauthenticated \
-          --port=6000 \
+          --port=5000 \
           --service-account=awssecretkey@sylvan-hydra-464904-d9.iam.gserviceaccount.com \
           --set-secrets=AWS_ACCESS_KEY=AWS_ACCESS_KEY:latest \
           --set-secrets=AWS_SECRET_KEY=AWS_SECRET_KEY:latest
