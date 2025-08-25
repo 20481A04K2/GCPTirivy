@@ -42,8 +42,8 @@ steps:
           --allow-unauthenticated \
           --port=5000 \
           --service-account=awssecretkey@sylvan-hydra-464904-d9.iam.gserviceaccount.com \
-          --set-secrets=AWS_ACCESS_KEY=AWS_ACCESS_KEY:latest \
-          --set-secrets=AWS_SECRET_KEY=AWS_SECRET_KEY:latest
+          --set-secrets=AWS_ACCESS_KEY=projects/sylvan-hydra-464904-d9/secrets/AWS_ACCESS_KEY:latest \
+          --set-secrets=AWS_SECRET_KEY=projects/sylvan-hydra-464904-d9/secrets/AWS_SECRET_KEY:latest
 
 timeout: 5400s
 
