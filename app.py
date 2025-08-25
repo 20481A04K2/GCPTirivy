@@ -1,31 +1,35 @@
 from flask import Flask
 import os
-from google.cloud import secretmanager
+from google.cloud import secretmanager_v1
+import google_crc32c
 
 app = Flask(__name__)
-client = secretmanager.SecretManagerServiceClient()
 
-def get_secret(secret_id, fallback_env):
-    """
-    Try fetching secret from Secret Manager.
-    If it fails, fall back to environment variable.
-    """
-    try:
-        # Format: projects/{project_id}/locations/{region}/secrets/{secret}/versions/latest
-        name = f"projects/57920515119/locations/asia-south1/secrets/{secret_id}/versions/latest"
-        response = client.access_secret_version(request={"name": name})
-        return response.payload.data.decode("UTF-8")
-    except Exception as e:
-        # Fall back to env variable if secret not accessible
-        return os.getenv(fallback_env, f"Not Found ({e})")
+def access_regional_secret(project_id, location_id, secret_id, version_id="latest"):
+    api_endpoint = f"secretmanager.{location_id}.rep.googleapis.com"
+    client = secretmanager_v1.SecretManagerServiceClient(
+        client_options={"api_endpoint": api_endpoint},
+    )
+    name = f"projects/{project_id}/locations/{location_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(request={"name": name})
+
+    # Verify CRC32C checksum
+    crc32c = google_crc32c.Checksum()
+    crc32c.update(response.payload.data)
+    if response.payload.data_crc32c != int(crc32c.hexdigest(), 16):
+        raise ValueError("Secret payload corrupted!")
+
+    return response.payload.data.decode("UTF-8")
 
 @app.route("/")
 def home():
-    aws_access = get_secret("AWS_ACCESS_KEY", "AWS_ACCESS_KEY")
-    aws_secret = get_secret("AWS_SECRET_KEY", "AWS_SECRET_KEY")
+    project_id = "sylvan-hydra-464904-d9"
+    location_id = "asia-south1"  # Regional Secret Manager location
+    aws_access = access_regional_secret(project_id, location_id, "AWS_ACCESS_KEY")
+    aws_secret = access_regional_secret(project_id, location_id, "AWS_SECRET_KEY")
 
     return f"""
-    <h1>Secrets in Cloud Run</h1>
+    <h1>Secrets in Cloud Run (Regional)</h1>
     <p><b>AWS_ACCESS_KEY:</b> {aws_access}</p>
     <p><b>AWS_SECRET_KEY:</b> {aws_secret}</p>
     """
