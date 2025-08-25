@@ -1,17 +1,20 @@
 from flask import Flask
-import os
 from google.cloud import secretmanager_v1
 import google_crc32c
 
 app = Flask(__name__)
 
-def access_regional_secret(project_id, location_id, secret_id, version_id="latest"):
-    api_endpoint = f"secretmanager.{location_id}.rep.googleapis.com"
-    client = secretmanager_v1.SecretManagerServiceClient(
-        client_options={"api_endpoint": api_endpoint},
-    )
-    name = f"projects/{project_id}/locations/{location_id}/secrets/{secret_id}/versions/{version_id}"
-    response = client.access_secret_version(request={"name": name})
+def access_secret(resource_id: str) -> str:
+    """
+    Access a secret using its full resource ID.
+    Example:
+    projects/57920515119/locations/asia-south1/secrets/AWS_ACCESS_KEY/versions/1
+    """
+    # Use regional endpoint automatically from resource path
+    client = secretmanager_v1.SecretManagerServiceClient()
+
+    # Fetch the secret
+    response = client.access_secret_version(request={"name": resource_id})
 
     # Verify CRC32C checksum
     crc32c = google_crc32c.Checksum()
@@ -23,10 +26,12 @@ def access_regional_secret(project_id, location_id, secret_id, version_id="lates
 
 @app.route("/")
 def home():
-    project_id = "sylvan-hydra-464904-d9"
-    location_id = "asia-south1"  # Regional Secret Manager location
-    aws_access = access_regional_secret(project_id, location_id, "AWS_ACCESS_KEY")
-    aws_secret = access_regional_secret(project_id, location_id, "AWS_SECRET_KEY")
+    # Full resource IDs for your secrets
+    aws_access_id = "projects/57920515119/locations/asia-south1/secrets/AWS_ACCESS_KEY/versions/1"
+    aws_secret_id = "projects/57920515119/locations/asia-south1/secrets/AWS_SECRET_KEY/versions/1"
+
+    aws_access = access_secret(aws_access_id)
+    aws_secret = access_secret(aws_secret_id)
 
     return f"""
     <h1>Secrets in Cloud Run (Regional)</h1>
